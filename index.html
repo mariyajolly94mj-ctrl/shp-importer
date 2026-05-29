@@ -3,549 +3,438 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SHP → Power Apps Line Importer</title>
+<title>SHP → Power Apps Importer</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;800&display=swap');
-  :root {
-    --bg:#0d1117;--surface:#161b22;--surface2:#1c2330;--border:#30363d;
-    --accent:#2ea043;--accent2:#388bfd;--warn:#d29922;--danger:#da3633;
-    --text:#e6edf3;--muted:#8b949e;
-    --mono:'JetBrains Mono',monospace;--sans:'Syne',sans-serif;
-  }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding:28px 20px;}
-  header{display:flex;align-items:flex-start;gap:14px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--border);}
-  .logo{width:44px;height:44px;background:linear-gradient(135deg,#2ea043,#388bfd);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
-  h1{font-size:20px;font-weight:800;}
-  .subtitle{font-size:12px;color:var(--muted);margin-top:3px;}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;}
-  .card-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
-  .card-title span{font-size:15px;}
+  body{background:#f5f5f5;color:#1a1a1a;font-family:'Inter',sans-serif;min-height:100vh;padding:24px 16px;}
+  .container{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:16px;}
+  h1{font-size:18px;font-weight:600;}
+  .subtitle{font-size:13px;color:#666;margin-top:2px;}
+  .card{background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:20px;}
+  .card-title{font-size:12px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;}
 
-  /* File row */
+  /* Mode toggle */
+  .mode-row{display:flex;gap:8px;}
+  .mode-btn{flex:1;padding:10px;border-radius:8px;border:1px solid #e0e0e0;background:#fafafa;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;color:#555;}
+  .mode-btn.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a;}
+
+  /* File upload */
   .file-row{display:flex;gap:12px;flex-wrap:wrap;}
   .file-slot{flex:1;min-width:200px;}
-  .slot-tag{font-size:11px;font-weight:700;letter-spacing:.1em;color:var(--muted);margin-bottom:6px;}
-  .drop-zone{border:2px dashed var(--border);border-radius:8px;padding:18px 12px;text-align:center;cursor:pointer;transition:all .2s;position:relative;}
-  .drop-zone:hover,.drop-zone.over{border-color:var(--accent2);background:rgba(56,139,253,.05);}
+  .slot-tag{font-size:11px;font-weight:600;color:#555;margin-bottom:6px;}
+  .drop-zone{border:2px dashed #d0d0d0;border-radius:8px;padding:20px 12px;text-align:center;cursor:pointer;transition:all .2s;position:relative;background:#fafafa;}
+  .drop-zone:hover,.drop-zone.over{border-color:#4f8ef7;background:#f0f5ff;}
   .drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;}
-  .drop-icon{font-size:28px;margin-bottom:8px;}
-  .drop-main{font-size:13px;font-weight:600;margin-bottom:4px;}
-  .drop-sub{font-size:11px;color:var(--muted);}
-  .file-badge{display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--accent);border-radius:5px;padding:4px 10px;font-family:var(--mono);font-size:11px;color:var(--accent);margin-top:6px;}
+  .drop-icon{font-size:24px;margin-bottom:6px;}
+  .drop-main{font-size:13px;font-weight:500;margin-bottom:3px;}
+  .drop-sub{font-size:11px;color:#999;}
+  .file-ok{display:inline-flex;align-items:center;gap:6px;background:#f0fdf4;border:1px solid #86efac;border-radius:5px;padding:4px 10px;font-size:11px;color:#166534;margin-top:6px;}
 
-  /* Column picker */
-  .col-picker-table{width:100%;border-collapse:collapse;font-size:13px;}
-  .col-picker-table th{background:var(--surface2);color:var(--muted);font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);}
-  .col-picker-table td{padding:8px 12px;border-bottom:1px solid #21262d;font-family:var(--mono);font-size:12px;vertical-align:middle;}
-  .col-picker-table tr:last-child td{border-bottom:none;}
-  .col-picker-table tr:hover td{background:var(--surface2);}
-  .sample-val{color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .type-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;}
-  .type-C{background:#1f2d40;color:#58a6ff;}
-  .type-N{background:#1a2f1e;color:#3fb950;}
-  .type-D{background:#2d1f0e;color:#d29922;}
+  /* Column table */
+  .col-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .col-table th{background:#f5f5f5;color:#666;font-size:11px;font-weight:600;letter-spacing:.05em;padding:8px 12px;text-align:left;border-bottom:1px solid #e8e8e8;}
+  .col-table td{padding:8px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle;}
+  .col-table tr:last-child td{border-bottom:none;}
+  .col-table tr:hover td{background:#fafafa;}
+  .type-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;}
+  .type-C{background:#eff6ff;color:#1d4ed8;}
+  .type-N{background:#f0fdf4;color:#166534;}
+  .sample{color:#999;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
-  .role-btn{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;font-family:var(--sans);}
-  .role-btn:hover{border-color:var(--accent2);color:var(--accent2);}
-  .role-btn.selected-name{border-color:var(--accent2);background:rgba(56,139,253,.15);color:var(--accent2);}
-  .role-btn.selected-len{border-color:var(--accent);background:rgba(46,160,67,.15);color:var(--accent);}
-  .role-btn.selected-ignore{border-color:#444;background:#1a1a1a;color:#555;}
+  .role-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;border:1px solid #e0e0e0;background:#fff;color:#666;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit;margin-right:4px;}
+  .role-btn:hover{border-color:#4f8ef7;color:#4f8ef7;}
+  .role-btn.sel-name{border-color:#4f8ef7;background:#eff6ff;color:#1d4ed8;}
+  .role-btn.sel-len{border-color:#22c55e;background:#f0fdf4;color:#166534;}
 
-  /* Selection summary */
-  .sel-summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
-  .sel-chip{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;}
-  .sel-chip.name{background:rgba(56,139,253,.15);border:1px solid rgba(56,139,253,.4);color:var(--accent2);}
-  .sel-chip.len{background:rgba(46,160,67,.15);border:1px solid rgba(46,160,67,.4);color:var(--accent);}
-  .sel-chip.none{background:var(--surface2);border:1px solid var(--border);color:var(--muted);}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+  .chip{padding:5px 12px;border-radius:16px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:5px;}
+  .chip.name{background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;}
+  .chip.len{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;}
+  .chip.none{background:#f5f5f5;border:1px solid #e0e0e0;color:#999;}
 
-  /* PA fields */
+  /* PA column inputs */
   .pa-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
-  .pa-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:160px;}
-  .pa-group label{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.05em;}
-  .pa-group input{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:20px;font-weight:700;padding:8px 12px;width:100%;text-align:center;}
-  .pa-group input:focus{outline:2px solid var(--accent2);border-color:transparent;}
-  .pa-hint{font-size:11px;color:var(--muted);margin-top:4px;}
+  .pa-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:150px;}
+  .pa-group label{font-size:11px;font-weight:600;color:#666;letter-spacing:.04em;}
+  .pa-group input[type=number]{background:#fff;border:1px solid #e0e0e0;border-radius:6px;color:#1a1a1a;font-family:inherit;font-size:20px;font-weight:600;padding:8px 12px;width:100%;text-align:center;}
+  .pa-group input:focus{outline:2px solid #4f8ef7;border-color:transparent;}
+  .pa-hint{font-size:11px;color:#999;}
 
   /* Buttons */
-  .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:8px;border:none;font-family:var(--sans);font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;}
-  .btn-primary{background:var(--accent);color:#fff;}
-  .btn-primary:hover{background:#3fb950;}
-  .btn-primary:disabled{background:#1a2e1e;color:#3a5a3a;cursor:not-allowed;}
-  .btn-copy{background:var(--accent2);color:#fff;}
-  .btn-copy:hover{background:#58a6ff;}
-  .btn-dl{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
-  .btn-dl:hover{border-color:var(--accent2);}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;}
+  .btn-green{background:#22c55e;color:#fff;}
+  .btn-green:hover{background:#16a34a;}
+  .btn-green:disabled{background:#d1fae5;color:#a7f3d0;cursor:not-allowed;}
+  .btn-blue{background:#4f8ef7;color:#fff;}
+  .btn-blue:hover{background:#3b82f6;}
+  .btn-gray{background:#f5f5f5;color:#555;border:1px solid #e0e0e0;}
+  .btn-gray:hover{border-color:#4f8ef7;}
 
-  /* Status */
   .status{display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:7px;font-size:12px;margin-bottom:12px;}
-  .status.success{background:rgba(46,160,67,.1);border:1px solid rgba(46,160,67,.3);color:var(--accent);}
-  .status.warn{background:rgba(210,153,34,.1);border:1px solid rgba(210,153,34,.3);color:var(--warn);}
-  .status.info{background:rgba(56,139,253,.1);border:1px solid rgba(56,139,253,.3);color:var(--accent2);}
+  .status.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;}
 
-  /* Stats */
   .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
-  .stat{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:11px;color:var(--muted);}
-  .stat strong{display:block;font-size:17px;color:var(--text);font-family:var(--mono);font-weight:700;}
+  .stat{background:#f5f5f5;border-radius:8px;padding:8px 14px;font-size:11px;color:#666;}
+  .stat strong{display:block;font-size:17px;color:#1a1a1a;font-weight:600;}
 
-  /* Preview table */
-  .tbl-wrap{overflow:auto;max-height:320px;border:1px solid var(--border);border-radius:8px;margin-bottom:14px;}
-  table{width:100%;border-collapse:collapse;font-size:12px;}
-  thead{position:sticky;top:0;}
-  th{background:var(--surface2);color:var(--muted);font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);}
-  td{padding:7px 12px;border-bottom:1px solid #21262d;font-family:var(--mono);}
-  tr:hover td{background:var(--surface2);}
-  tr:last-child td{border-bottom:none;}
-  .c-num{color:var(--accent2);}
-  .c-name{color:var(--text);}
-  .c-len{color:var(--accent);}
+  .tbl-wrap{overflow:auto;max-height:300px;border:1px solid #e8e8e8;border-radius:8px;margin-bottom:14px;}
+  table.preview{width:100%;border-collapse:collapse;font-size:12px;}
+  table.preview thead{position:sticky;top:0;}
+  table.preview th{background:#f5f5f5;color:#666;font-size:11px;font-weight:600;letter-spacing:.05em;padding:8px 12px;text-align:left;border-bottom:1px solid #e8e8e8;}
+  table.preview td{padding:7px 12px;border-bottom:1px solid #f5f5f5;font-family:monospace;}
+  table.preview tr:hover td{background:#fafafa;}
+  table.preview tr:last-child td{border-bottom:none;}
+  .c-num{color:#4f8ef7;}.c-name{color:#1a1a1a;}.c-len{color:#16a34a;}
 
-  /* Output */
-  .out-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11px;color:var(--muted);white-space:pre;overflow:auto;max-height:160px;margin-bottom:12px;line-height:1.6;}
+  .out-box{background:#f8f8f8;border:1px solid #e8e8e8;border-radius:8px;padding:12px;font-family:monospace;font-size:11px;color:#555;white-space:pre;overflow:auto;max-height:140px;margin-bottom:12px;line-height:1.6;}
   .action-bar{display:flex;gap:9px;flex-wrap:wrap;align-items:center;}
-  .copy-ok{font-size:12px;color:var(--accent);opacity:0;transition:opacity .3s;}
+  .copy-ok{font-size:12px;color:#16a34a;opacity:0;transition:opacity .3s;}
   .copy-ok.show{opacity:1;}
-
-  /* Instructions */
-  .instructions{background:#0c1a2a;border:1px solid rgba(56,139,253,.25);border-radius:8px;padding:16px 18px;font-size:12px;line-height:1.8;}
-  .instructions ol{padding-left:18px;}
-  .instructions li{color:var(--muted);margin-bottom:4px;}
-  .instructions li strong{color:var(--accent2);}
-  code{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-family:var(--mono);font-size:10px;color:var(--accent);}
-
   .hidden{display:none!important;}
-  .divider{height:1px;background:var(--border);margin:14px 0;}
+  .divider{height:1px;background:#f0f0f0;margin:14px 0;}
+  .err{color:#dc2626;font-size:12px;margin-top:6px;}
+  .pa-note{font-size:12px;color:#555;background:#fffbeb;border:1px solid #fde68a;border-radius:7px;padding:10px 14px;margin-bottom:14px;}
 </style>
 </head>
 <body>
+<div class="container">
 
-<header>
-  <div class="logo">🗺️</div>
   <div>
-    <h1>SHP → Power Apps Line Importer</h1>
-    <div class="subtitle">Upload your Shapefile, pick the right columns, copy into Power Apps — done.</div>
-  </div>
-</header>
-
-<!-- STEP 1: Upload -->
-<div class="card">
-  <div class="card-title"><span>📂</span> Step 1 — Upload Shapefile</div>
-  <div class="file-row">
-    <div class="file-slot">
-      <div class="slot-tag">REQUIRED · .SHP</div>
-      <div class="drop-zone" id="dz-shp">
-        <input type="file" id="inp-shp" accept=".shp">
-        <div class="drop-icon">📐</div>
-        <div class="drop-main">Drop .shp file here</div>
-        <div class="drop-sub">or click to browse</div>
-        <div id="shp-label"></div>
-      </div>
-    </div>
-    <div class="file-slot">
-      <div class="slot-tag">RECOMMENDED · .DBF (contains column names)</div>
-      <div class="drop-zone" id="dz-dbf">
-        <input type="file" id="inp-dbf" accept=".dbf">
-        <div class="drop-icon">📋</div>
-        <div class="drop-main">Drop .dbf file here</div>
-        <div class="drop-sub">Same filename as .shp, different extension</div>
-        <div id="dbf-label"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- STEP 2: Column Picker -->
-<div class="card hidden" id="card-cols">
-  <div class="card-title"><span>🎯</span> Step 2 — Identify Columns</div>
-  <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">
-    Your file has the columns below. Click <strong style="color:var(--accent2)">Use as Name</strong> and <strong style="color:var(--accent)">Use as Length</strong> to tell the tool which columns to use.
-    Columns marked <strong>Ignore</strong> won't be exported.
-  </p>
-  <div style="overflow:auto;">
-    <table class="col-picker-table" id="col-table">
-      <thead>
-        <tr>
-          <th>Col #</th>
-          <th>Field Name</th>
-          <th>Type</th>
-          <th>Sample Value</th>
-          <th>Role</th>
-        </tr>
-      </thead>
-      <tbody id="col-tbody"></tbody>
-    </table>
+    <h1>SHP → Power Apps Importer</h1>
+    <div class="subtitle">Import survey lines or ground truth points from a Shapefile into Power Apps.</div>
   </div>
 
-  <div class="divider"></div>
-
-  <div class="sel-summary" id="sel-summary">
-    <div class="sel-chip none" id="chip-name">📝 Name: not selected</div>
-    <div class="sel-chip none" id="chip-len">📏 Length: not selected</div>
-  </div>
-
-  <div style="margin-bottom:14px;">
-    <div class="card-title" style="margin-bottom:10px;"><span>⚙️</span> Power Apps Column Numbers</div>
-    <p style="font-size:11px;color:var(--muted);margin-bottom:10px;">
-      These must match what you enter in the <strong style="color:var(--text)">Line Name Column No.</strong> and <strong style="color:var(--text)">Line Length Column No.</strong> fields in Power Apps.
-    </p>
-    <div class="pa-row">
-      <div class="pa-group">
-        <label>LINE NAME COLUMN NO. (Power Apps)</label>
-        <input type="number" id="pa-name-col" value="1" min="1">
-        <div class="pa-hint">Enter this number in Power Apps "Line Name Column No."</div>
-      </div>
-      <div class="pa-group">
-        <label>LINE LENGTH COLUMN NO. (Power Apps)</label>
-        <input type="number" id="pa-len-col" value="2" min="1">
-        <div class="pa-hint">Enter this number in Power Apps "Line Length Column No."</div>
-      </div>
+  <!-- Mode -->
+  <div class="card">
+    <div class="card-title">What are you importing?</div>
+    <div class="mode-row">
+      <button class="mode-btn active" id="mode-lines" onclick="setMode('lines')">📐 Survey Lines</button>
+      <button class="mode-btn" id="mode-points" onclick="setMode('points')">📍 Ground Truth Points</button>
     </div>
   </div>
 
-  <button class="btn btn-primary" id="btn-generate" disabled>▶ Generate Output</button>
-</div>
-
-<!-- STEP 3: Output -->
-<div class="card hidden" id="card-out">
-  <div class="card-title"><span>✅</span> Step 3 — Copy into Power Apps</div>
-
-  <div id="status-area"></div>
-
-  <div class="stats" id="stats-area"></div>
-
-  <div class="tbl-wrap" id="preview-tbl"></div>
-
-  <div class="divider"></div>
-
-  <div class="card-title" style="margin-bottom:8px;"><span>📋</span> Paste this into Power Apps</div>
-  <div class="out-box" id="out-box"></div>
-  <div class="action-bar">
-    <button class="btn btn-copy" id="btn-copy">📋 Copy to Clipboard</button>
-    <button class="btn btn-dl" id="btn-dl">⬇ Download .txt</button>
-    <span class="copy-ok" id="copy-ok">✓ Copied!</span>
+  <!-- Upload -->
+  <div class="card">
+    <div class="card-title">Step 1 — Upload Files</div>
+    <div class="file-row">
+      <div class="file-slot">
+        <div class="slot-tag">SHP FILE</div>
+        <div class="drop-zone" id="dz-shp">
+          <input type="file" id="inp-shp" accept=".shp">
+          <div class="drop-icon">📐</div>
+          <div class="drop-main">Drop .shp file here</div>
+          <div class="drop-sub">or click to browse</div>
+          <div id="shp-label"></div>
+        </div>
+      </div>
+      <div class="file-slot">
+        <div class="slot-tag">DBF FILE</div>
+        <div class="drop-zone" id="dz-dbf">
+          <input type="file" id="inp-dbf" accept=".dbf">
+          <div class="drop-icon">📋</div>
+          <div class="drop-main">Drop .dbf file here</div>
+          <div class="drop-sub">Same filename, different extension</div>
+          <div id="dbf-label"></div>
+        </div>
+      </div>
+    </div>
+    <div id="upload-err" class="err hidden"></div>
   </div>
 
-  <div class="divider"></div>
+  <!-- Column Picker -->
+  <div class="card hidden" id="card-cols">
+    <div class="card-title">Step 2 — Pick Columns</div>
+    <p style="font-size:12px;color:#666;margin-bottom:14px;" id="col-hint">Click the correct roles for each column.</p>
+    <div style="overflow:auto;">
+      <table class="col-table">
+        <thead><tr><th>#</th><th>Field</th><th>Type</th><th>Sample</th><th>Role</th></tr></thead>
+        <tbody id="col-tbody"></tbody>
+      </table>
+    </div>
+    <div class="divider"></div>
 
-  <div class="card-title" style="margin-bottom:8px;"><span>📖</span> Power Apps Settings to Use</div>
-  <div class="instructions" id="pa-instructions"></div>
+    <!-- Lines: name + length chips + PA columns -->
+    <div id="lines-config">
+      <div class="chips" id="sel-chips">
+        <div class="chip none" id="chip-name">Name: not selected</div>
+        <div class="chip none" id="chip-len">Length: not selected</div>
+      </div>
+      <div class="pa-row">
+        <div class="pa-group">
+          <label>LINE NAME COLUMN NO. (Power Apps)</label>
+          <input type="number" id="pa-name" value="1" min="1">
+          <div class="pa-hint">Enter in "Line Name Column No."</div>
+        </div>
+        <div class="pa-group">
+          <label>LINE LENGTH COLUMN NO. (Power Apps)</label>
+          <input type="number" id="pa-len" value="2" min="1">
+          <div class="pa-hint">Enter in "Line Length Column No."</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Points: name chip + PA column -->
+    <div id="points-config" class="hidden">
+      <div class="chips" id="sel-chips-pt">
+        <div class="chip none" id="chip-name-pt">Name: not selected</div>
+      </div>
+      <div class="pa-note">
+        In Power Apps <strong>Ground Truth → Import Points</strong> tab, set <strong>Point Name Column No.</strong> to <code style="background:#fef3c7;padding:1px 5px;border-radius:3px;">1</code> — the output always puts the name in column 1.
+      </div>
+    </div>
+
+    <button class="btn btn-green" id="btn-generate" disabled>▶ Generate Output</button>
+  </div>
+
+  <!-- Output -->
+  <div class="card hidden" id="card-out">
+    <div class="card-title">Step 3 — Copy into Power Apps</div>
+    <div id="status-area"></div>
+    <div class="stats" id="stats-area"></div>
+    <div class="tbl-wrap" id="preview-tbl"></div>
+    <div class="divider"></div>
+    <div class="card-title" style="margin-bottom:8px;">Paste this into Power Apps</div>
+    <div class="out-box" id="out-box"></div>
+    <div class="action-bar">
+      <button class="btn btn-blue" id="btn-copy">📋 Copy to Clipboard</button>
+      <button class="btn btn-gray" id="btn-dl">⬇ Download .txt</button>
+      <span class="copy-ok" id="copy-ok">✓ Copied!</span>
+    </div>
+  </div>
+
 </div>
-
 <script>
-// ── SHP Parser ──────────────────────────────────────────────
+let currentMode = 'lines';
+let shpRecs = null, dbfData = null;
+let selName = null, selLen = null, selNamePt = null;
+
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('mode-lines').className = 'mode-btn' + (mode==='lines'?' active':'');
+  document.getElementById('mode-points').className = 'mode-btn' + (mode==='points'?' active':'');
+  document.getElementById('lines-config').classList.toggle('hidden', mode!=='lines');
+  document.getElementById('points-config').classList.toggle('hidden', mode!=='points');
+  document.getElementById('col-hint').textContent = mode==='lines'
+    ? 'Click Name and Length roles on the correct rows.'
+    : 'Click the Name role on the column containing point names.';
+  document.getElementById('card-out').classList.add('hidden');
+  selName=null; selLen=null; selNamePt=null;
+  if (dbfData) { buildTable(); updateChips(); checkReady(); }
+}
+
+// SHP parser (points + polylines)
 function parseSHP(buf) {
   const v = new DataView(buf);
   if (v.getInt32(0,false) !== 9994) throw new Error('Not a valid SHP file');
-  const records = [];
-  let off = 100;
+  const shapeType = v.getInt32(32, true);
+  const recs = []; let off = 100;
   while (off < buf.byteLength - 8) {
-    const recNum = v.getInt32(off, false);
-    const clen = v.getInt32(off+4, false) * 2;
-    off += 8;
-    if (off + clen > buf.byteLength) break;
+    const clen = v.getInt32(off+4,false)*2; off += 8;
+    if (off+clen > buf.byteLength) break;
     const st = v.getInt32(off, true);
-    if (st === 3 || st === 5) {
-      const np = v.getInt32(off+36, true);
-      const npt = v.getInt32(off+40, true);
-      const parts = [];
-      for (let p=0;p<np;p++) parts.push(v.getInt32(off+44+p*4, true));
-      const pb = off+44+np*4;
-      const pts = [];
-      for (let p=0;p<npt;p++) {
-        pts.push([v.getFloat64(pb+p*16,true), v.getFloat64(pb+p*16+8,true)]);
-      }
-      let len = 0;
-      for (let pi=0;pi<parts.length;pi++) {
-        const s = parts[pi], e = pi+1<parts.length ? parts[pi+1] : pts.length;
-        for (let j=s;j<e-1;j++) {
-          const dx=pts[j+1][0]-pts[j][0], dy=pts[j+1][1]-pts[j][1];
-          len += Math.sqrt(dx*dx+dy*dy);
-        }
-      }
-      records.push({recNum, shpLength: len});
+    if (st === 1) { // Point
+      recs.push({type:'point'});
+    } else if (st === 3 || st === 5) { // Polyline/Polygon
+      const np=v.getInt32(off+36,true), npt=v.getInt32(off+40,true);
+      const parts=[]; for(let p=0;p<np;p++) parts.push(v.getInt32(off+44+p*4,true));
+      const pb=off+44+np*4, pts=[];
+      for(let p=0;p<npt;p++) pts.push([v.getFloat64(pb+p*16,true), v.getFloat64(pb+p*16+8,true)]);
+      let len=0;
+      for(let pi=0;pi<parts.length;pi++){const s=parts[pi],e=pi+1<parts.length?parts[pi+1]:pts.length;for(let j=s;j<e-1;j++){const dx=pts[j+1][0]-pts[j][0],dy=pts[j+1][1]-pts[j][1];len+=Math.sqrt(dx*dx+dy*dy);}}
+      recs.push({type:'line', shpLength:len});
     }
     off += clen;
   }
-  return records;
+  return {shapeType, recs};
 }
 
-// ── DBF Parser ──────────────────────────────────────────────
 function parseDBF(buf) {
-  const v = new DataView(buf);
-  const numRec = v.getUint32(4,true);
-  const hdrBytes = v.getUint16(8,true);
-  const recBytes = v.getUint16(10,true);
-  const dec = new TextDecoder('latin1');
-  const fields = [];
-  let pos = 32;
-  while (pos < hdrBytes - 1) {
-    if (v.getUint8(pos) === 0x0D) break;
-    const name = dec.decode(new Uint8Array(buf,pos,11)).replace(/\0/g,'').trim();
-    const type = String.fromCharCode(v.getUint8(pos+11));
-    const length = v.getUint8(pos+16);
-    const decimals = v.getUint8(pos+17);
-    fields.push({name, type, length, decimals});
-    pos += 32;
+  const v=new DataView(buf);
+  const numRec=v.getUint32(4,true), hdr=v.getUint16(8,true), recBytes=v.getUint16(10,true);
+  const dec=new TextDecoder('latin1'), fields=[]; let pos=32;
+  while(pos<hdr-1){
+    if(v.getUint8(pos)===0x0D) break;
+    const name=dec.decode(new Uint8Array(buf,pos,11)).replace(/\0/g,'').trim();
+    const type=String.fromCharCode(v.getUint8(pos+11)), length=v.getUint8(pos+16);
+    fields.push({name,type,length}); pos+=32;
   }
-  const records = [];
-  for (let r=0;r<numRec;r++) {
-    const rs = hdrBytes + r*recBytes;
-    if (v.getUint8(rs) === 0x2A) continue;
-    const rec = {};
-    let fp = rs+1;
-    for (const f of fields) {
-      rec[f.name] = dec.decode(new Uint8Array(buf,fp,f.length)).trim();
-      fp += f.length;
-    }
+  const records=[];
+  for(let r=0;r<numRec;r++){
+    const rs=hdr+r*recBytes; if(v.getUint8(rs)===0x2A) continue;
+    const rec={}; let fp=rs+1;
+    for(const f of fields){rec[f.name]=dec.decode(new Uint8Array(buf,fp,f.length)).trim(); fp+=f.length;}
     records.push(rec);
   }
   return {fields, records};
 }
 
-// ── State ────────────────────────────────────────────────────
-let shpRecs = null, dbfData = null;
-let selectedName = null, selectedLen = null;
+function readBuf(file){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=e=>res(e.target.result);fr.onerror=rej;fr.readAsArrayBuffer(file);});}
 
-// ── File Handling ────────────────────────────────────────────
-function readBuf(file) {
-  return new Promise((res,rej) => {
-    const fr = new FileReader();
-    fr.onload = e => res(e.target.result);
-    fr.onerror = rej;
-    fr.readAsArrayBuffer(file);
-  });
+function fileBadge(id,name){document.getElementById(id).innerHTML=`<div class="file-ok">✓ ${esc(name)}</div>`;}
+function showErr(msg){const el=document.getElementById('upload-err');el.textContent=msg;el.classList.remove('hidden');}
+
+async function loadSHP(file){const res=await readBuf(file).then(parseSHP);shpRecs=res;fileBadge('shp-label',file.name);tryShow();}
+async function loadDBF(file){const buf=await readBuf(file);dbfData=parseDBF(buf);fileBadge('dbf-label',file.name);tryShow();}
+
+function setupDZ(dzId,inpId,handler){
+  const dz=document.getElementById(dzId),inp=document.getElementById(inpId);
+  inp.addEventListener('change',e=>{if(e.target.files[0])handler(e.target.files[0]).catch(err=>showErr(err.message));});
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');if(e.dataTransfer.files[0])handler(e.dataTransfer.files[0]).catch(err=>showErr(err.message));});
 }
+setupDZ('dz-shp','inp-shp',loadSHP);
+setupDZ('dz-dbf','inp-dbf',loadDBF);
 
-function fileBadge(id, name) {
-  document.getElementById(id).innerHTML = `<div class="file-badge">✓ ${esc(name)}</div>`;
-}
-
-async function loadSHP(file) {
-  const buf = await readBuf(file);
-  shpRecs = parseSHP(buf);
-  fileBadge('shp-label', file.name);
-  tryShowCols();
-}
-
-async function loadDBF(file) {
-  const buf = await readBuf(file);
-  dbfData = parseDBF(buf);
-  fileBadge('dbf-label', file.name);
-  tryShowCols();
-}
-
-function setupDZ(dzId, inpId, handler) {
-  const dz = document.getElementById(dzId);
-  const inp = document.getElementById(inpId);
-  inp.addEventListener('change', e => { if(e.target.files[0]) handler(e.target.files[0]).catch(err=>alert(err.message)); });
-  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
-  dz.addEventListener('dragleave', () => dz.classList.remove('over'));
-  dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); if(e.dataTransfer.files[0]) handler(e.dataTransfer.files[0]).catch(err=>alert(err.message)); });
-}
-
-setupDZ('dz-shp','inp-shp', loadSHP);
-setupDZ('dz-dbf','inp-dbf', loadDBF);
-
-// ── Build Column Picker ──────────────────────────────────────
-function tryShowCols() {
-  if (!shpRecs) return;
+function tryShow(){
+  if(!shpRecs||!dbfData) return;
+  document.getElementById('upload-err').classList.add('hidden');
   document.getElementById('card-cols').classList.remove('hidden');
-  selectedName = null; selectedLen = null;
-  buildColTable();
-  updateSummary();
+  selName=null; selLen=null; selNamePt=null;
+  buildTable(); updateChips(); checkReady();
 }
 
-function buildColTable() {
-  const tbody = document.getElementById('col-tbody');
-  tbody.innerHTML = '';
-
-  // Always add SHP geometry length as a virtual field
-  const fields = dbfData
-    ? [...dbfData.fields, {name:'[SHP Geometry Length]', type:'N', length:0, _virtual:true}]
-    : [{name:'[SHP Geometry Length]', type:'N', length:0, _virtual:true}];
-
-  // Auto-detect sensible defaults
-  fields.forEach((f, i) => {
-    const id = 'field_' + i;
-    const sample = dbfData && !f._virtual
-      ? (dbfData.records[0]?.[f.name] || '—')
-      : (shpRecs[0]?.shpLength.toFixed(2) + ' m');
-
-    // Heuristic auto-select
-    const lname = f.name.toLowerCase();
-    const isNameLike = /name|bezeich|profil|titel|title|id|line/i.test(f.name) && f.type === 'C';
-    const isLenLike = /length|len|laenge|dist/i.test(f.name) && (f.type === 'N' || f._virtual);
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="c-num">${i+1}</td>
-      <td style="color:var(--text);font-weight:600;">${esc(f.name)}</td>
-      <td><span class="type-badge type-${f.type}">${f.type === 'C' ? 'Text' : f.type === 'N' ? 'Number' : f.type}</span></td>
-      <td class="sample-val" title="${esc(String(sample))}">${esc(String(sample))}</td>
-      <td>
-        <button class="role-btn ${isNameLike?'selected-name':''}" id="btn-name-${i}" onclick="selectRole(${i},'name')">📝 Use as Name</button>
-        <button class="role-btn ${isLenLike?'selected-len':''}" id="btn-len-${i}" onclick="selectRole(${i},'len')">📏 Use as Length</button>
-      </td>`;
+function buildTable(){
+  const tbody=document.getElementById('col-tbody'); tbody.innerHTML='';
+  const fields=dbfData.fields;
+  fields.forEach((f,i)=>{
+    const sample=dbfData.records[0]?.[f.name]||'—';
+    const isNameLike=/name|line|bezeich|profil|title|station|id/i.test(f.name)&&f.type==='C';
+    const isLenLike=/length|len|laenge|dist/i.test(f.name)&&f.type==='N';
+    if(currentMode==='lines'){
+      if(isNameLike&&selName===null) selName=i;
+      if(isLenLike&&selLen===null) selLen=i;
+    } else {
+      if(isNameLike&&selNamePt===null) selNamePt=i;
+    }
+    const tr=document.createElement('tr');
+    if(currentMode==='lines'){
+      tr.innerHTML=`<td class="c-num">${i+1}</td>
+        <td style="font-weight:500">${esc(f.name)}</td>
+        <td><span class="type-badge type-${f.type}">${f.type==='C'?'Text':'Number'}</span></td>
+        <td class="sample" title="${esc(sample)}">${esc(sample)}</td>
+        <td>
+          <button class="role-btn ${isNameLike?'sel-name':''}" id="bn-${i}" onclick="pick(${i},'name')">📝 Name</button>
+          <button class="role-btn ${isLenLike?'sel-len':''}" id="bl-${i}" onclick="pick(${i},'len')">📏 Length</button>
+        </td>`;
+    } else {
+      tr.innerHTML=`<td class="c-num">${i+1}</td>
+        <td style="font-weight:500">${esc(f.name)}</td>
+        <td><span class="type-badge type-${f.type}">${f.type==='C'?'Text':'Number'}</span></td>
+        <td class="sample" title="${esc(sample)}">${esc(sample)}</td>
+        <td>
+          <button class="role-btn ${isNameLike?'sel-name':''}" id="bpt-${i}" onclick="pickPt(${i})">📝 Name</button>
+        </td>`;
+    }
     tbody.appendChild(tr);
-
-    if (isNameLike && selectedName === null) selectedName = i;
-    if (isLenLike && selectedLen === null) selectedLen = i;
   });
-
-  // Store fields on window for later
-  window._fields = fields;
-
-  refreshButtonStates();
-  updateSummary();
-  checkReady();
+  window._fields=fields;
 }
 
-function selectRole(idx, role) {
-  if (role === 'name') {
-    selectedName = (selectedName === idx) ? null : idx;
+function pick(idx,role){
+  if(role==='name') selName=(selName===idx)?null:idx;
+  else selLen=(selLen===idx)?null:idx;
+  const fields=window._fields||[];
+  fields.forEach((_,i)=>{
+    const bn=document.getElementById('bn-'+i),bl=document.getElementById('bl-'+i);
+    if(!bn) return;
+    bn.className='role-btn'+(selName===i?' sel-name':'');
+    bl.className='role-btn'+(selLen===i?' sel-len':'');
+  });
+  updateChips(); checkReady();
+}
+
+function pickPt(idx){
+  selNamePt=(selNamePt===idx)?null:idx;
+  const fields=window._fields||[];
+  fields.forEach((_,i)=>{
+    const b=document.getElementById('bpt-'+i);
+    if(!b) return;
+    b.className='role-btn'+(selNamePt===i?' sel-name':'');
+  });
+  updateChips(); checkReady();
+}
+
+function updateChips(){
+  const fields=window._fields||[];
+  if(currentMode==='lines'){
+    const cn=document.getElementById('chip-name'),cl=document.getElementById('chip-len');
+    if(selName!==null&&fields[selName]){cn.className='chip name';cn.textContent='📝 Name: '+fields[selName].name;}
+    else{cn.className='chip none';cn.textContent='Name: not selected';}
+    if(selLen!==null&&fields[selLen]){cl.className='chip len';cl.textContent='📏 Length: '+fields[selLen].name;}
+    else{cl.className='chip none';cl.textContent='Length: not selected';}
   } else {
-    selectedLen = (selectedLen === idx) ? null : idx;
-  }
-  refreshButtonStates();
-  updateSummary();
-  checkReady();
-}
-
-function refreshButtonStates() {
-  const fields = window._fields || [];
-  fields.forEach((f, i) => {
-    const nb = document.getElementById('btn-name-'+i);
-    const lb = document.getElementById('btn-len-'+i);
-    if (!nb || !lb) return;
-    nb.className = 'role-btn' + (selectedName === i ? ' selected-name' : '');
-    lb.className = 'role-btn' + (selectedLen === i ? ' selected-len' : '');
-  });
-}
-
-function updateSummary() {
-  const fields = window._fields || [];
-  const cn = document.getElementById('chip-name');
-  const cl = document.getElementById('chip-len');
-  if (selectedName !== null && fields[selectedName]) {
-    cn.className = 'sel-chip name';
-    cn.textContent = '📝 Name: ' + fields[selectedName].name;
-  } else {
-    cn.className = 'sel-chip none';
-    cn.textContent = '📝 Name: not selected';
-  }
-  if (selectedLen !== null && fields[selectedLen]) {
-    cl.className = 'sel-chip len';
-    cl.textContent = '📏 Length: ' + fields[selectedLen].name;
-  } else {
-    cl.className = 'sel-chip none';
-    cl.textContent = '📏 Length: not selected';
+    const cn=document.getElementById('chip-name-pt');
+    if(selNamePt!==null&&fields[selNamePt]){cn.className='chip name';cn.textContent='📝 Name: '+fields[selNamePt].name;}
+    else{cn.className='chip none';cn.textContent='Name: not selected';}
   }
 }
 
-function checkReady() {
-  document.getElementById('btn-generate').disabled = (selectedName === null || selectedLen === null);
+function checkReady(){
+  const ok = currentMode==='lines'?(selName!==null&&selLen!==null):(selNamePt!==null);
+  document.getElementById('btn-generate').disabled=!ok;
 }
 
-// ── Generate ─────────────────────────────────────────────────
-document.getElementById('btn-generate').addEventListener('click', generate);
-
-function generate() {
-  const fields = window._fields || [];
-  const nameField = fields[selectedName];
-  const lenField = fields[selectedLen];
-  const paNameCol = parseInt(document.getElementById('pa-name-col').value) || 1;
-  const paLenCol = parseInt(document.getElementById('pa-len-col').value) || 2;
-
-  const rows = shpRecs.map((rec, i) => {
-    let name, length;
-
-    // Name
-    if (nameField._virtual) {
-      name = 'Line_' + String(rec.recNum).padStart(3,'0');
-    } else {
-      name = dbfData?.records[i]?.[nameField.name] || ('Line_' + rec.recNum);
-    }
-
-    // Length
-    if (lenField._virtual) {
-      length = parseFloat(rec.shpLength.toFixed(2));
-    } else {
-      const raw = dbfData?.records[i]?.[lenField.name] || '0';
-      length = parseFloat(parseFloat(raw).toFixed(2));
-    }
-
-    return {name, length};
-  });
-
-  // Stats
-  const total = rows.reduce((s,r)=>s+r.length,0);
-  document.getElementById('stats-area').innerHTML = `
-    <div class="stat"><strong>${rows.length}</strong>Lines</div>
-    <div class="stat"><strong>${(total/1000).toFixed(1)} km</strong>Total length</div>
-    <div class="stat"><strong>${(total/rows.length).toFixed(0)} m</strong>Avg length</div>
-    <div class="stat"><strong>${nameField.name}</strong>Name column</div>
-    <div class="stat"><strong>${lenField.name}</strong>Length column</div>
-  `;
-
-  // Preview table
-  let tbl = `<table><thead><tr><th>#</th><th>Line Name</th><th>Length (m)</th></tr></thead><tbody>`;
-  for (const [i,r] of rows.entries()) {
-    tbl += `<tr><td class="c-num">${i+1}</td><td class="c-name">${esc(r.name)}</td><td class="c-len">${r.length}</td></tr>`;
-  }
-  tbl += '</tbody></table>';
-  document.getElementById('preview-tbl').innerHTML = tbl;
-
-  // Tab-separated output
-  const maxCol = Math.max(paNameCol, paLenCol);
-  const lines = rows.map(r => {
-    const cols = new Array(maxCol).fill('');
-    cols[paNameCol-1] = r.name;
-    cols[paLenCol-1] = String(r.length);
-    return cols.join('\t');
-  });
-  const output = lines.join('\n');
-  document.getElementById('out-box').textContent = output;
-  window._output = output;
-  window._rows = rows;
-
-  // Status
-  document.getElementById('status-area').innerHTML =
-    `<div class="status success">✅ ${rows.length} lines ready. Copy the text below and paste into Power Apps.</div>`;
-
-  // Instructions
-  document.getElementById('pa-instructions').innerHTML = `
-    <ol>
-      <li>In Power Apps <strong>Import Lines</strong> tab, set <strong>Line Name Column No.</strong> to <code>${paNameCol}</code></li>
-      <li>Set <strong>Line Length Column No.</strong> to <code>${paLenCol}</code></li>
-      <li>Click <strong>Copy to Clipboard</strong> above and paste into the <em>"Paste lines data from text file"</em> box</li>
-      <li>Click <strong>📊 Parse Lines</strong> — you should see <strong>${rows.length} lines</strong> in the preview</li>
-      <li>Select Area / Sub-Area, then click <strong>💾 Save Lines to SharePoint</strong></li>
-    </ol>`;
-
+document.getElementById('btn-generate').addEventListener('click',()=>{
+  const fields=window._fields||[];
   document.getElementById('card-out').classList.remove('hidden');
-  document.getElementById('card-out').scrollIntoView({behavior:'smooth'});
-}
 
-// ── Copy / Download ──────────────────────────────────────────
-document.getElementById('btn-copy').addEventListener('click', () => {
-  navigator.clipboard.writeText(window._output||'').then(() => {
-    const el = document.getElementById('copy-ok');
-    el.classList.add('show');
-    setTimeout(()=>el.classList.remove('show'), 2000);
+  if(currentMode==='lines'){
+    const nf=fields[selName],lf=fields[selLen];
+    const paNC=parseInt(document.getElementById('pa-name').value)||1;
+    const paLC=parseInt(document.getElementById('pa-len').value)||2;
+    const rows=shpRecs.recs.map((rec,i)=>{
+      const name=dbfData.records[i]?.[nf.name]||('Line_'+(i+1));
+      const raw=dbfData.records[i]?.[lf.name]||'0';
+      return{name, length:parseFloat(parseFloat(raw).toFixed(2))};
+    });
+    const total=rows.reduce((s,r)=>s+r.length,0);
+    document.getElementById('stats-area').innerHTML=`
+      <div class="stat"><strong>${rows.length}</strong>Lines</div>
+      <div class="stat"><strong>${(total/1000).toFixed(1)} km</strong>Total</div>
+      <div class="stat"><strong>${(total/rows.length).toFixed(0)} m</strong>Avg</div>`;
+    let tbl=`<table class="preview"><thead><tr><th>#</th><th>Line Name</th><th>Length (m)</th></tr></thead><tbody>`;
+    for(const[i,r]of rows.entries()) tbl+=`<tr><td class="c-num">${i+1}</td><td class="c-name">${esc(r.name)}</td><td class="c-len">${r.length}</td></tr>`;
+    tbl+='</tbody></table>';
+    document.getElementById('preview-tbl').innerHTML=tbl;
+    const maxCol=Math.max(paNC,paLC);
+    const lines=rows.map(r=>{const c=new Array(maxCol).fill('');c[paNC-1]=r.name;c[paLC-1]=String(r.length);return c.join('\t');});
+    const output=lines.join('\n');
+    document.getElementById('out-box').textContent=output;
+    window._output=output;
+    document.getElementById('status-area').innerHTML=`<div class="status ok">✅ ${rows.length} lines ready — paste into Power Apps Import Lines tab.</div>`;
+
+  } else {
+    const nf=fields[selNamePt];
+    const rows=dbfData.records.map((rec,i)=>({num:i+1, name:rec[nf.name]||('Point_'+(i+1))}));
+    document.getElementById('stats-area').innerHTML=`<div class="stat"><strong>${rows.length}</strong>Points</div>`;
+    let tbl=`<table class="preview"><thead><tr><th>#</th><th>Point Name</th></tr></thead><tbody>`;
+    for(const r of rows) tbl+=`<tr><td class="c-num">${r.num}</td><td class="c-name">${esc(r.name)}</td></tr>`;
+    tbl+='</tbody></table>';
+    document.getElementById('preview-tbl').innerHTML=tbl;
+    const output=rows.map(r=>r.name).join('\n');
+    document.getElementById('out-box').textContent=output;
+    window._output=output;
+    document.getElementById('status-area').innerHTML=`<div class="status ok">✅ ${rows.length} points ready — paste into Power Apps Ground Truth → Import Points tab.</div>`;
+  }
+  document.getElementById('card-out').scrollIntoView({behavior:'smooth'});
+});
+
+document.getElementById('btn-copy').addEventListener('click',()=>{
+  navigator.clipboard.writeText(window._output||'').then(()=>{
+    const el=document.getElementById('copy-ok');el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2000);
   });
 });
-
-document.getElementById('btn-dl').addEventListener('click', () => {
-  const blob = new Blob([window._output||''], {type:'text/plain'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'lines_import.txt';
+document.getElementById('btn-dl').addEventListener('click',()=>{
+  const a=document.createElement('a');
+  a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(window._output||'');
+  a.download='import.txt';
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
 });
-
-function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 </script>
 </body>
 </html>
